@@ -1,0 +1,990 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EcoAcopio QR | Gestión de Acopio y Adecuación de Residuos de Alimentos</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- QRCode.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        ean: {
+                            emerald: '#00875A',
+                            darkGreen: '#064E3B',
+                            lightGreen: '#ECFDF5',
+                            accent: '#10B981',
+                            gold: '#F59E0B',
+                            warning: '#EF4444',
+                            earth: '#78350F'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .scanner-laser {
+            animation: scan 2s infinite ease-in-out;
+        }
+        @keyframes scan {
+            0%, 100% { top: 5%; }
+            50% { top: 90%; }
+        }
+        .pulse-badge {
+            animation: pulse-ring 1.5s infinite;
+        }
+        @keyframes pulse-ring {
+            0% { transform: scale(0.95); opacity: 1; }
+            50% { transform: scale(1.05); opacity: 0.8; }
+            100% { transform: scale(0.95); opacity: 1; }
+        }
+        @media print {
+            body * { visibility: hidden; }
+            #printable-qr-tag, #printable-qr-tag * { visibility: visible; }
+            #printable-qr-tag { position: absolute; left: 0; top: 0; width: 100%; }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col antialiased selection:bg-emerald-200">
+
+    <!-- TOP NAVBAR -->
+    <header class="bg-emerald-950 text-white border-b border-emerald-800 sticky top-0 z-40 shadow-md">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-emerald-950 font-bold text-xl shadow-lg">
+                    <i class="fa-solid fa-leaf"></i>
+                </div>
+                <div>
+                    <div class="flex items-center space-x-2">
+                        <span class="font-extrabold text-lg tracking-tight text-white">EcoAcopio <span class="text-emerald-400">QR</span></span>
+                        <span class="bg-emerald-800 text-emerald-200 text-xs px-2 py-0.5 rounded-full font-medium">EAN Pro</span>
+                    </div>
+                    <p class="text-xs text-emerald-300">Trazabilidad y Adecuación de Residuos Orgánicos • Colombia</p>
+                </div>
+            </div>
+
+            <!-- Header Actions -->
+            <div class="flex items-center space-x-3">
+                <button onclick="toggleGuideModal()" class="bg-amber-500 hover:bg-amber-600 text-amber-950 text-xs sm:text-sm font-bold px-3 py-2 rounded-lg flex items-center space-x-2 transition shadow-md animate-bounce">
+                    <i class="fa-solid fa-chalkboard-user"></i>
+                    <span class="hidden sm:inline">Guía de Exposición (7 min)</span>
+                    <span class="sm:hidden">Guía</span>
+                </button>
+                <button onclick="loadDemoData()" class="bg-emerald-800 hover:bg-emerald-700 text-emerald-100 text-xs sm:text-sm font-medium px-3 py-2 rounded-lg transition border border-emerald-700 flex items-center space-x-1">
+                    <i class="fa-solid fa-rotate-right"></i>
+                    <span class="hidden md:inline">Cargar Datos Demo</span>
+                </button>
+                <span class="text-xs text-emerald-300 bg-emerald-900/60 px-3 py-1.5 rounded-md border border-emerald-800 hidden lg:block">
+                    <i class="fa-regular fa-clock mr-1"></i> <span id="live-timer">--:--:--</span>
+                </span>
+            </div>
+        </div>
+    </header>
+
+    <!-- BANNER EAN EXPOSITION -->
+    <div class="bg-gradient-to-r from-emerald-800 via-teal-800 to-emerald-900 text-white px-4 py-2 text-xs sm:text-sm border-b border-emerald-700">
+        <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
+            <div class="flex items-center space-x-2">
+                <span class="bg-emerald-500 text-emerald-950 font-bold px-2 py-0.5 rounded text-xs uppercase">Caso EAN</span>
+                <span><strong>Etapa evaluada:</strong> Acopio y/o Adecuación de Residuos de Alimentos</span>
+            </div>
+            <div class="flex items-center space-x-4 text-emerald-200 text-xs">
+                <span><i class="fa-solid fa-shield-halved text-emerald-400"></i> Control Anti-Pudrición</span>
+                <span><i class="fa-solid fa-qrcode text-emerald-400"></i> Trazabilidad QR</span>
+                <span><i class="fa-solid fa-truck-ramp-box text-emerald-400"></i> Integración Corabastos/Plazas</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN CONTAINER -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full space-y-6">
+
+        <!-- METRICS DASHBOARD -->
+        <section class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <!-- Metric 1 -->
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 hover:border-emerald-300 transition">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold uppercase text-slate-500">Total Acopiado</span>
+                    <div class="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                        <i class="fa-solid fa-weight-hanging"></i>
+                    </div>
+                </div>
+                <div class="mt-2 flex items-baseline justify-between">
+                    <span class="text-2xl font-extrabold text-slate-900" id="stat-total-weight">0 kg</span>
+                    <span class="text-xs text-emerald-600 font-semibold"><i class="fa-solid fa-arrow-up"></i> Entradas hoy</span>
+                </div>
+                <p class="text-xs text-slate-400 mt-1">Acopio en estación central</p>
+            </div>
+
+            <!-- Metric 2 -->
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 hover:border-emerald-300 transition">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold uppercase text-slate-500">Lixiviados Evitados</span>
+                    <div class="w-8 h-8 rounded-lg bg-teal-100 text-teal-700 flex items-center justify-center">
+                        <i class="fa-solid fa-droplet-slash"></i>
+                    </div>
+                </div>
+                <div class="mt-2 flex items-baseline justify-between">
+                    <span class="text-2xl font-extrabold text-teal-700" id="stat-leachate-avoided">0 L</span>
+                    <span class="text-xs text-teal-600 font-semibold">98% Eficiencia</span>
+                </div>
+                <p class="text-xs text-slate-400 mt-1">Control de humedad in-situ</p>
+            </div>
+
+            <!-- Metric 3 -->
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 hover:border-emerald-300 transition">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold uppercase text-slate-500">Riesgo de Pudrición</span>
+                    <div class="w-8 h-8 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                    </div>
+                </div>
+                <div class="mt-2 flex items-baseline justify-between">
+                    <span class="text-2xl font-extrabold text-amber-600" id="stat-alert-count">0</span>
+                    <span class="text-xs text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded font-medium" id="stat-alert-status">0 lotes en riesgo</span>
+                </div>
+                <p class="text-xs text-slate-400 mt-1">Retención > 8 horas</p>
+            </div>
+
+            <!-- Metric 4 -->
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 hover:border-emerald-300 transition">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold uppercase text-slate-500">Adecuación A tiempo</span>
+                    <div class="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center">
+                        <i class="fa-solid fa-circle-check"></i>
+                    </div>
+                </div>
+                <div class="mt-2 flex items-baseline justify-between">
+                    <span class="text-2xl font-extrabold text-emerald-800" id="stat-success-rate">100%</span>
+                    <span class="text-xs text-emerald-600 font-semibold">Ruta asignada</span>
+                </div>
+                <p class="text-xs text-slate-400 mt-1">Deshidratación / Bokashi</p>
+            </div>
+        </section>
+
+        <!-- MAIN INTERACTION WORKSPACE -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+            <!-- LEFT COLUMN: REGISTRATION FORM & QR TAG PREVIEW (5 COLS) -->
+            <div class="lg:col-span-5 space-y-6">
+
+                <!-- REGISTRATION CARD -->
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="bg-gradient-to-r from-emerald-900 to-emerald-800 p-4 text-white flex items-center justify-between">
+                        <div class="flex items-center space-x-2">
+                            <i class="fa-solid fa-dolly text-emerald-400"></i>
+                            <h2 class="font-bold text-base">Registro de Ingreso de Lote</h2>
+                        </div>
+                        <span class="text-xs bg-emerald-950 px-2 py-1 rounded text-emerald-300 border border-emerald-700">Paso 1: Recepción</span>
+                    </div>
+
+                    <form id="batch-form" onsubmit="handleFormSubmit(event)" class="p-5 space-y-4">
+                        <!-- Origin / Supplier -->
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Origen / Proveedor del Residuos</label>
+                            <div class="relative">
+                                <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400">
+                                    <i class="fa-solid fa-store text-xs"></i>
+                                </span>
+                                <select id="input-supplier" required class="w-full pl-9 pr-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white">
+                                    <option value="">-- Seleccionar Proveedor --</option>
+                                    <option value="Central Corabastos (Bogotá)">Central Corabastos (Bogotá)</option>
+                                    <option value="Plaza de Mercado Paloquemao">Plaza de Mercado Paloquemao</option>
+                                    <option value="Plaza 7 de Agosto">Plaza de Mercado 7 de Agosto</option>
+                                    <option value="Restaurante Institucional EAN">Restaurante Institucional EAN</option>
+                                    <option value="Supermercado Local / Fruver">Fruver / Granel San Victorino</option>
+                                    <option value="Otro Proveedor Registrado">Otro Proveedor Registrado</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Type of Food Waste -->
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Tipo de Residuo Orgánico</label>
+                            <select id="input-type" required onchange="autoSuggestRoute()" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white">
+                                <option value="Frutas y Verduras (Alta Humedad)">Frutas y Verduras (Alta Humedad >80%)</option>
+                                <option value="Tubérculos y Cáscaras Duras">Tubérculos y Cáscaras Duras (Papa, Yuca)</option>
+                                <option value="Excedentes de Panadería y Cereales">Excedentes de Panadería y Cereales</option>
+                                <option value="Residuos Mixtos de Cocina / Restos">Residuos Mixtos de Cocina / Restos</option>
+                                <option value="Restos Cárnicos y Lácteos (Controlado)">Restos Cárnicos y Lácteos (Controlado)</option>
+                            </select>
+                        </div>
+
+                        <!-- Grid: Weight and Humidity -->
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Peso Neto (Kg)</label>
+                                <input type="number" id="input-weight" min="1" max="5000" step="0.1" value="85" required class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Estado Humedad</label>
+                                <select id="input-humidity" required class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white">
+                                    <option value="Muy Alta (>85%)">Muy Alta (>85%)</option>
+                                    <option value="Moderada (60-85%)" selected>Moderada (60-85%)</option>
+                                    <option value="Baja (<60%)">Baja (<60%)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Proposed Tech Solution (Adecuación Target) -->
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Ruta de Adecuación Sugerida</label>
+                            <div class="relative">
+                                <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-emerald-600">
+                                    <i class="fa-solid fa-gears text-xs"></i>
+                                </span>
+                                <select id="input-route" required class="w-full pl-9 pr-3 py-2 text-sm border border-emerald-300 font-medium bg-emerald-50/50 text-emerald-900 rounded-lg focus:ring-2 focus:ring-emerald-500">
+                                    <option value="Deshidratación Térmica / Secado">Deshidratación Térmica / Secado (Frena pudrición)</option>
+                                    <option value="Biológica - Microorganismos Bokashi">Biológica - Estabilización Bokashi In-Situ</option>
+                                    <option value="Compostaje Automatizado In-Vessel">Compostaje Automatizado In-Vessel</option>
+                                    <option value="Alimentación Animal (Norma ICA)">Alimentación Animal (Norma ICA)</option>
+                                    <option value="Biodigestión Anaerobia (Biogás)">Biodigestión Anaerobia (Biogás)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-4 rounded-xl shadow-md transition flex items-center justify-center space-x-2">
+                            <i class="fa-solid fa-qrcode"></i>
+                            <span>Generar Lote & Código QR Industrial</span>
+                        </button>
+                    </form>
+                </div>
+
+                <!-- LIVE GENERATED INDUSTRIAL QR TAG CARD -->
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-4" id="tag-card-container">
+                    <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                        <div class="flex items-center space-x-2 text-slate-800 font-bold text-sm">
+                            <i class="fa-solid fa-print text-emerald-600"></i>
+                            <span>Etiqueta Industrial de Acopio</span>
+                        </div>
+                        <span class="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-mono" id="tag-status-badge">Esperando Registro</span>
+                    </div>
+
+                    <!-- PRINTABLE TAG CONTENT -->
+                    <div id="printable-qr-tag" class="border-2 border-dashed border-emerald-300 rounded-xl p-4 bg-gradient-to-b from-emerald-50/40 to-white relative">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <span class="bg-emerald-800 text-white font-mono text-xs font-bold px-2 py-0.5 rounded" id="tag-id">LOT-EAN-0000</span>
+                                <h3 class="font-black text-slate-900 text-base mt-1" id="tag-type-display">Esperando lote...</h3>
+                                <p class="text-xs text-slate-500" id="tag-supplier-display">Origen: No definido</p>
+                            </div>
+                            <div class="text-right">
+                                <span class="text-xs font-bold uppercase text-emerald-700 block">Centro Acopio</span>
+                                <span class="text-[10px] text-slate-400">Bogotá, D.C.</span>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-2 my-3 py-2 border-y border-slate-200 text-xs">
+                            <div>
+                                <span class="text-slate-400 block text-[10px] uppercase">Peso Registrado</span>
+                                <strong class="text-slate-800 text-sm" id="tag-weight-display">-- kg</strong>
+                            </div>
+                            <div>
+                                <span class="text-slate-400 block text-[10px] uppercase">Humedad Inicial</span>
+                                <strong class="text-amber-700 text-sm" id="tag-humidity-display">--</strong>
+                            </div>
+                            <div class="col-span-2">
+                                <span class="text-slate-400 block text-[10px] uppercase">Tratamiento Asignado</span>
+                                <span class="text-emerald-800 font-semibold" id="tag-route-display">--</span>
+                            </div>
+                        </div>
+
+                        <!-- QR CONTAINER -->
+                        <div class="flex flex-col items-center justify-center p-2 bg-white rounded-lg border border-slate-200 shadow-inner">
+                            <div id="qrcode" class="my-1 flex items-center justify-center min-h-[128px]">
+                                <span class="text-xs text-slate-400 italic">Complete el formulario arriba</span>
+                            </div>
+                            <span class="text-[10px] font-mono text-slate-400 mt-1" id="tag-hash">HASH: UNASSIGNED</span>
+                        </div>
+                    </div>
+
+                    <div class="flex space-x-2">
+                        <button onclick="printTag()" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold py-2 rounded-lg transition flex items-center justify-center space-x-1">
+                            <i class="fa-solid fa-print"></i>
+                            <span>Imprimir Etiqueta</span>
+                        </button>
+                        <button onclick="simulateScannerWithCurrentTag()" class="flex-1 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 text-xs font-bold py-2 rounded-lg transition flex items-center justify-center space-x-1">
+                            <i class="fa-solid fa-barcode"></i>
+                            <span>Simular Escaneo</span>
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- RIGHT COLUMN: DASHBOARD TABS, TABLE & SCANNER SIMULATOR (7 COLS) -->
+            <div class="lg:col-span-7 space-y-6">
+
+                <!-- TABS HEADER -->
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-2 flex space-x-2">
+                    <button onclick="switchTab('tab-table')" id="btn-tab-table" class="flex-1 py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition flex items-center justify-center space-x-2 bg-emerald-700 text-white shadow">
+                        <i class="fa-solid fa-list-check"></i>
+                        <span>Lotes en Acopio</span>
+                    </button>
+                    <button onclick="switchTab('tab-scanner')" id="btn-tab-scanner" class="flex-1 py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition flex items-center justify-center space-x-2 text-slate-600 hover:bg-slate-100">
+                        <i class="fa-solid fa-qrcode"></i>
+                        <span>Simulador Escáner</span>
+                    </button>
+                    <button onclick="switchTab('tab-analytics')" id="btn-tab-analytics" class="flex-1 py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition flex items-center justify-center space-x-2 text-slate-600 hover:bg-slate-100">
+                        <i class="fa-solid fa-chart-pie"></i>
+                        <span>Impacto Ambiental</span>
+                    </button>
+                </div>
+
+                <!-- TAB 1: BATCH TABLE -->
+                <div id="tab-table" class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-4">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div>
+                            <h3 class="font-bold text-slate-900 text-base">Inventario Activo en Centro de Acopio</h3>
+                            <p class="text-xs text-slate-500">Trazabilidad en tiempo real y asignación de rutas de adecuación</p>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <input type="text" id="search-batch" oninput="renderTable()" placeholder="Buscar lote u origen..." class="px-3 py-1.5 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 w-44">
+                        </div>
+                    </div>
+
+                    <!-- TABLE -->
+                    <div class="overflow-x-auto rounded-xl border border-slate-200">
+                        <table class="w-full text-left text-xs text-slate-600">
+                            <thead class="bg-slate-50 text-slate-700 font-bold uppercase text-[10px] border-b border-slate-200">
+                                <tr>
+                                    <th class="p-3">ID Lote</th>
+                                    <th class="p-3">Origen</th>
+                                    <th class="p-3">Tipo / Peso</th>
+                                    <th class="p-3">Ruta Adecuación</th>
+                                    <th class="p-3">Estado / Retención</th>
+                                    <th class="p-3 text-right">Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody id="batch-table-body" class="divide-y divide-slate-100 font-medium">
+                                <!-- Dynamic rows -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- TAB 2: LIVE SCANNER SIMULATOR -->
+                <div id="tab-scanner" class="hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-4">
+                    <div>
+                        <h3 class="font-bold text-slate-900 text-base">Simulador de Lectura de QR en Tolva de Adecuación</h3>
+                        <p class="text-xs text-slate-500">Demostración en vivo para la clase: cómo el operario escanea la etiqueta en la entrada de la máquina</p>
+                    </div>
+
+                    <!-- CAMERA SIMULATION FRAME -->
+                    <div class="bg-slate-950 rounded-2xl p-6 text-white relative overflow-hidden flex flex-col items-center justify-center min-h-[300px] shadow-2xl border-4 border-slate-900">
+                        <!-- Laser line animation -->
+                        <div class="absolute left-0 right-0 h-1 bg-red-500 shadow-[0_0_15px_#ef4444] scanner-laser z-10"></div>
+                        
+                        <!-- Target box -->
+                        <div class="w-48 h-48 border-2 border-emerald-400 border-dashed rounded-xl flex items-center justify-center relative z-0 bg-emerald-950/30">
+                            <i class="fa-solid fa-qrcode text-6xl text-emerald-500/40 animate-pulse"></i>
+                            <span class="absolute top-2 left-2 text-[10px] font-mono text-emerald-400">CAM_01_ACOPIO</span>
+                        </div>
+
+                        <!-- Scanner Status -->
+                        <div class="mt-4 text-center space-y-1 z-20">
+                            <span class="inline-block bg-emerald-900/80 text-emerald-300 text-xs px-3 py-1 rounded-full border border-emerald-700 font-mono" id="scanner-feedback">
+                                Escáner Industrial Óptico Listo
+                            </span>
+                            <p class="text-[11px] text-slate-400">Seleccione un lote para simular la lectura de la cámara en la tolva</p>
+                        </div>
+                    </div>
+
+                    <!-- QUICK SCAN TRIGGER SELECTOR -->
+                    <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+                        <label class="block text-xs font-bold text-slate-700">Seleccionar Lote Registrado para Escanear:</label>
+                        <div class="flex space-x-2">
+                            <select id="scanner-batch-select" class="flex-1 text-xs border border-slate-300 rounded-lg px-3 py-2 bg-white">
+                                <!-- Dynamic options -->
+                            </select>
+                            <button onclick="executeScanFromSelect()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2 rounded-lg transition flex items-center space-x-1">
+                                <i class="fa-solid fa-bolt"></i>
+                                <span>Escanear Ahora</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- LAST SCANNED RESULT CARD -->
+                    <div id="scan-result-card" class="hidden bg-emerald-50 border border-emerald-200 rounded-xl p-4 space-y-2">
+                        <div class="flex items-center justify-between text-emerald-900">
+                            <div class="flex items-center space-x-2 font-bold text-sm">
+                                <i class="fa-solid fa-circle-check text-emerald-600 text-lg"></i>
+                                <span>¡Lote Validado y Asignado con Éxito!</span>
+                            </div>
+                            <span class="text-xs font-mono bg-emerald-200 text-emerald-900 px-2 py-0.5 rounded" id="scan-res-id">LOT-000</span>
+                        </div>
+                        <p class="text-xs text-slate-700" id="scan-res-detail">Detalles del escaneo...</p>
+                    </div>
+                </div>
+
+                <!-- TAB 3: ANALYTICS & ENVIRONMENTAL IMPACT -->
+                <div id="tab-analytics" class="hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-5">
+                    <div>
+                        <h3 class="font-bold text-slate-900 text-base">Análisis de Distribución y Mitigación Ambiental</h3>
+                        <p class="text-xs text-slate-500">Métricas comparativas para justificación técnica del proyecto</p>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                            <h4 class="text-xs font-bold text-slate-700 mb-3 text-center">Destino de Residuos por Ruta de Adecuación</h4>
+                            <div class="h-48">
+                                <canvas id="chart-routes"></canvas>
+                            </div>
+                        </div>
+                        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                            <h4 class="text-xs font-bold text-slate-700 mb-3 text-center">Nivel de Humedad vs. Riesgo de Lixiviados</h4>
+                            <div class="h-48">
+                                <canvas id="chart-humidity"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-emerald-900 text-emerald-100 p-4 rounded-xl text-xs space-y-2">
+                        <div class="font-bold flex items-center space-x-2 text-white">
+                            <i class="fa-solid fa-leaf text-emerald-400"></i>
+                            <span>Impacto Ambiental Acumulado en el Proyecto</span>
+                        </div>
+                        <p class="leading-relaxed text-emerald-200">
+                            Al implementar la deshidratación in-situ y estabilización por microorganismos en el punto de acopio, se elimina la fermentación metanogénica descontrolada, reduciendo hasta un <strong>84% de las emisiones de Metano ($CH_4$)</strong> en comparación con el vertido directo en el Doña Juana.
+                        </p>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="bg-white border-t border-slate-200 py-4 mt-8 text-xs text-slate-500">
+        <div class="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+            <div class="flex items-center space-x-2">
+                <span class="font-bold text-emerald-900">EcoAcopio QR</span>
+                <span>•</span>
+                <span>Proyecto Académico Universidad EAN</span>
+            </div>
+            <div>
+                <span>Diseñado para la etapa de <strong>Acopio y Adecuación de Residuos de Alimentos</strong></span>
+            </div>
+        </div>
+    </footer>
+
+    <!-- MODAL: GUÍA DE EXPOSICIÓN (7 MINUTOS) -->
+    <div id="modal-guide" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 p-6 space-y-6">
+            
+            <div class="flex items-start justify-between border-b border-slate-100 pb-4">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-xl bg-amber-500 text-amber-950 flex items-center justify-center text-xl font-bold">
+                        <i class="fa-solid fa-stopwatch"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-slate-900 text-lg">Guía Paso a Paso para tu Exposición de 7 Minutos</h3>
+                        <p class="text-xs text-slate-500">Universidad EAN • Estructura exacta solicitada por el docente</p>
+                    </div>
+                </div>
+                <button onclick="toggleGuideModal()" class="text-slate-400 hover:text-slate-600 text-xl font-bold">&times;</button>
+            </div>
+
+            <!-- Steps timeline -->
+            <div class="space-y-4 text-xs text-slate-700">
+                
+                <!-- Minuto 0-1 -->
+                <div class="p-3 bg-amber-50 border-l-4 border-amber-500 rounded-r-lg">
+                    <div class="flex justify-between font-bold text-amber-900 mb-1">
+                        <span>1. Introducción y Contexto (Minuto 0:00 - 1:00)</span>
+                        <span class="bg-amber-200 px-2 py-0.5 rounded text-[10px]">Punto A</span>
+                    </div>
+                    <p><strong>Qué decir:</strong> "A nuestro grupo le correspondió la etapa clave de <em>Acopio y/o Adecuación de Residuos de Alimentos</em>. En esta fase, el principal problema es la <strong>pudrición acelerada de los residuos orgánicos</strong> acumulados en centros de acopio y plazas de mercado debido a la alta humedad y los tiempos de retención."</p>
+                </div>
+
+                <!-- Minuto 1-2 -->
+                <div class="p-3 bg-slate-50 border-l-4 border-slate-600 rounded-r-lg">
+                    <div class="flex justify-between font-bold text-slate-900 mb-1">
+                        <span>2. Causas del Problema (Minuto 1:00 - 2:00)</span>
+                        <span class="bg-slate-200 px-2 py-0.5 rounded text-[10px]">Punto B</span>
+                    </div>
+                    <p><strong>Qué decir:</strong> "Las causas raíces son: 1) Humedad >80% en cáscaras y restos de comida. 2) Falta de separación en origen. 3) Tiempos prolongados de retención que generan lixiviados tóxicos y olores ofensivos."</p>
+                </div>
+
+                <!-- Minuto 2-4 -->
+                <div class="p-3 bg-emerald-50 border-l-4 border-emerald-600 rounded-r-lg">
+                    <div class="flex justify-between font-bold text-emerald-900 mb-1">
+                        <span>3. Soluciones Tecnológicas y Selección (Minuto 2:00 - 4:00)</span>
+                        <span class="bg-emerald-200 px-2 py-0.5 rounded text-[10px]">Puntos C y D</span>
+                    </div>
+                    <p><strong>Qué decir:</strong> "Evaluamos deshidratación térmica, compostaje in-vessel y trazabilidad QR. Seleccionamos el <strong>Sistema EcoAcopio QR</strong>: combina trazabilidad por códigos QR industriales para clasificar los lotes apenas llegan, con rutas de adecuación inmediata (Deshidratación y Bokashi) para frenar la pudrición."</p>
+                </div>
+
+                <!-- Minuto 4-6 -->
+                <div class="p-3 bg-teal-50 border-l-4 border-teal-600 rounded-r-lg">
+                    <div class="flex justify-between font-bold text-teal-900 mb-1">
+                        <span>4. Demostración Interactiva en Vivo (Minuto 4:00 - 6:00)</span>
+                        <span class="bg-teal-200 px-2 py-0.5 rounded text-[10px]">Punto E (¡Usa el App!)</span>
+                    </div>
+                    <p><strong>Qué hacer en la pantalla:</strong> Registra un lote rápido (ej. 100 kg de Corabastos), muestra cómo se genera el código QR automático con la etiqueta industrial, pásate al <em>Simulador de Escáner</em> y haz clic en <em>Escanear Ahora</em> para escuchar el bip de aprobación y ver la tabla actualizada.</p>
+                </div>
+
+                <!-- Minuto 6-7 -->
+                <div class="p-3 bg-blue-50 border-l-4 border-blue-600 rounded-r-lg">
+                    <div class="flex justify-between font-bold text-blue-900 mb-1">
+                        <span>5. Conclusión e Impacto Ambiental (Minuto 6:00 - 7:00)</span>
+                        <span class="bg-blue-200 px-2 py-0.5 rounded text-[10px]">Cierre</span>
+                    </div>
+                    <p><strong>Qué decir:</strong> "Muestren la pestaña de <em>Impacto Ambiental</em>. Concluimos que con la trazabilidad digital y la adecuación rápida in-situ reducemos un 98% la generación de lixiviados y evitamos la emisión de metano a la atmósfera."</p>
+                </div>
+
+            </div>
+
+            <div class="pt-2 flex justify-end">
+                <button onclick="toggleGuideModal()" class="bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-5 py-2 rounded-xl text-xs transition">
+                    Entendido, ¡Listo para exponer!
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT LOGIC -->
+    <script>
+        // --- GLOBAL STATE ---
+        let batches = [];
+        let qrCodeObj = null;
+        let chartRoutes = null;
+        let chartHumidity = null;
+
+        // --- DEMO INITIAL DATA ---
+        const initialDemoBatches = [
+            {
+                id: 'LOT-EAN-1042',
+                supplier: 'Central Corabastos (Bogotá)',
+                type: 'Frutas y Verduras (Alta Humedad)',
+                weight: 240,
+                humidity: 'Muy Alta (>85%)',
+                route: 'Deshidratación Térmica / Secado',
+                status: 'En Procesamiento',
+                retentionHours: 2,
+                timestamp: '08:30 AM'
+            },
+            {
+                id: 'LOT-EAN-1043',
+                supplier: 'Plaza de Mercado Paloquemao',
+                type: 'Tubérculos y Cáscaras Duras',
+                weight: 180,
+                humidity: 'Moderada (60-85%)',
+                route: 'Compostaje Automatizado In-Vessel',
+                status: 'En Procesamiento',
+                retentionHours: 4,
+                timestamp: '09:15 AM'
+            },
+            {
+                id: 'LOT-EAN-1044',
+                supplier: 'Restaurante Institucional EAN',
+                type: 'Residuos Mixtos de Cocina / Restos',
+                weight: 65,
+                humidity: 'Muy Alta (>85%)',
+                route: 'Biológica - Estabilización Bokashi In-Situ',
+                status: 'Alerta Pudrición',
+                retentionHours: 11,
+                timestamp: '06:00 AM'
+            },
+            {
+                id: 'LOT-EAN-1045',
+                supplier: 'Plaza 7 de Agosto',
+                type: 'Excedentes de Panadería y Cereales',
+                weight: 110,
+                humidity: 'Baja (<60%)',
+                route: 'Alimentación Animal (Norma ICA)',
+                status: 'Adecuado',
+                retentionHours: 1,
+                timestamp: '10:00 AM'
+            }
+        ];
+
+        // --- SOUND EFFECTS (Web Audio API) ---
+        function playScanBeep() {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(1800, ctx.currentTime);
+                gain.gain.setValueAtTime(0.15, ctx.currentTime);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.12);
+            } catch (e) {
+                console.log("Audio not supported or blocked");
+            }
+        }
+
+        // --- INITIALIZATION ---
+        window.onload = function () {
+            // Live clock
+            setInterval(updateClock, 1000);
+            updateClock();
+
+            // Load Demo Data
+            loadDemoData();
+
+            // Init Charts
+            initCharts();
+        };
+
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('live-timer').innerText = now.toLocaleTimeString('es-CO');
+        }
+
+        function loadDemoData() {
+            batches = JSON.parse(JSON.stringify(initialDemoBatches));
+            renderAll();
+            generateTagForBatch(batches[0]);
+        }
+
+        // --- RENDER ALL COMPONENTS ---
+        function renderAll() {
+            renderTable();
+            renderMetrics();
+            updateScannerSelectOptions();
+            updateCharts();
+        }
+
+        // --- FORM SUBMIT HANDLER ---
+        function handleFormSubmit(e) {
+            e.preventDefault();
+
+            const supplier = document.getElementById('input-supplier').value;
+            const type = document.getElementById('input-type').value;
+            const weight = parseFloat(document.getElementById('input-weight').value);
+            const humidity = document.getElementById('input-humidity').value;
+            const route = document.getElementById('input-route').value;
+
+            const newId = 'LOT-EAN-' + Math.floor(1000 + Math.random() * 9000);
+
+            const newBatch = {
+                id: newId,
+                supplier: supplier,
+                type: type,
+                weight: weight,
+                humidity: humidity,
+                route: route,
+                status: 'En Recepción',
+                retentionHours: 0,
+                timestamp: new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })
+            };
+
+            batches.unshift(newBatch);
+            renderAll();
+            generateTagForBatch(newBatch);
+            playScanBeep();
+
+            // Notification
+            showToast(`Lote ${newId} registrado con código QR.`);
+        }
+
+        // --- AUTO SUGGEST ROUTE BASED ON TYPE ---
+        function autoSuggestRoute() {
+            const type = document.getElementById('input-type').value;
+            const routeSelect = document.getElementById('input-route');
+
+            if (type.includes('Frutas')) {
+                routeSelect.value = 'Deshidratación Térmica / Secado';
+            } else if (type.includes('Tubérculos')) {
+                routeSelect.value = 'Compostaje Automatizado In-Vessel';
+            } else if (type.includes('Panadería')) {
+                routeSelect.value = 'Alimentación Animal (Norma ICA)';
+            } else if (type.includes('Cárnicos')) {
+                routeSelect.value = 'Biodigestión Anaerobia (Biogás)';
+            } else {
+                routeSelect.value = 'Biológica - Estabilización Bokashi In-Situ';
+            }
+        }
+
+        // --- QR GENERATION ---
+        function generateTagForBatch(batch) {
+            document.getElementById('tag-id').innerText = batch.id;
+            document.getElementById('tag-type-display').innerText = batch.type;
+            document.getElementById('tag-supplier-display').innerText = 'Origen: ' + batch.supplier;
+            document.getElementById('tag-weight-display').innerText = batch.weight + ' kg';
+            document.getElementById('tag-humidity-display').innerText = batch.humidity;
+            document.getElementById('tag-route-display').innerText = batch.route;
+            document.getElementById('tag-status-badge').innerText = batch.status;
+            document.getElementById('tag-hash').innerText = 'HASH: ' + btoa(batch.id + batch.supplier).substring(0, 16);
+
+            // Render QR Code using QRCode.js
+            const qrContainer = document.getElementById("qrcode");
+            qrContainer.innerHTML = "";
+            
+            const qrPayload = JSON.stringify({
+                id: batch.id,
+                origen: batch.supplier,
+                peso: batch.weight,
+                ruta: batch.route
+            });
+
+            new QRCode(qrContainer, {
+                text: qrPayload,
+                width: 120,
+                height: 120,
+                colorDark: "#064e3b",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.H
+            });
+        }
+
+        // --- RENDER TABLE ---
+        function renderTable() {
+            const tbody = document.getElementById('batch-table-body');
+            const query = document.getElementById('search-batch').value.toLowerCase();
+            tbody.innerHTML = '';
+
+            const filtered = batches.filter(b => 
+                b.id.toLowerCase().includes(query) || 
+                b.supplier.toLowerCase().includes(query) ||
+                b.type.toLowerCase().includes(query)
+            );
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-slate-400 italic">No hay lotes registrados con ese criterio.</td></tr>`;
+                return;
+            }
+
+            filtered.forEach(batch => {
+                let statusBadge = '';
+                if (batch.status === 'En Recepción') {
+                    statusBadge = `<span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-[10px] font-bold">En Recepción</span>`;
+                } else if (batch.status === 'Alerta Pudrición') {
+                    statusBadge = `<span class="bg-red-100 text-red-800 px-2 py-0.5 rounded text-[10px] font-bold pulse-badge"><i class="fa-solid fa-triangle-exclamation"></i> Riesgo >8h</span>`;
+                } else if (batch.status === 'En Procesamiento') {
+                    statusBadge = `<span class="bg-amber-100 text-amber-800 px-2 py-0.5 rounded text-[10px] font-bold">En Adecuación</span>`;
+                } else {
+                    statusBadge = `<span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded text-[10px] font-bold"><i class="fa-solid fa-check"></i> Estabilizado</span>`;
+                }
+
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50 transition border-b border-slate-100";
+                tr.innerHTML = `
+                    <td class="p-3 font-mono font-bold text-emerald-900">${batch.id}</td>
+                    <td class="p-3">
+                        <div class="font-semibold text-slate-800">${batch.supplier}</div>
+                        <div class="text-[10px] text-slate-400">${batch.timestamp}</div>
+                    </td>
+                    <td class="p-3">
+                        <div class="text-slate-800">${batch.type}</div>
+                        <div class="font-bold text-slate-900">${batch.weight} kg</div>
+                    </td>
+                    <td class="p-3 text-emerald-800 font-medium">${batch.route}</td>
+                    <td class="p-3">${statusBadge}</td>
+                    <td class="p-3 text-right">
+                        <button onclick="selectAndScanBatch('${batch.id}')" class="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 px-2 py-1 rounded text-xs font-bold transition">
+                            <i class="fa-solid fa-qrcode mr-1"></i> Escanear
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // --- RENDER DASHBOARD METRICS ---
+        function renderMetrics() {
+            const totalWeight = batches.reduce((acc, b) => acc + b.weight, 0);
+            // Leachates avoided calculation: approx 0.45L per kg of wet organic waste treated in-situ
+            const leachatesAvoided = Math.round(totalWeight * 0.45);
+            const alertCount = batches.filter(b => b.status === 'Alerta Pudrición' || b.retentionHours >= 8).length;
+            const processedCount = batches.filter(b => b.status === 'Adecuado' || b.status === 'En Procesamiento').length;
+            const successRate = batches.length ? Math.round((processedCount / batches.length) * 100) : 100;
+
+            document.getElementById('stat-total-weight').innerText = totalWeight.toLocaleString() + ' kg';
+            document.getElementById('stat-leachate-avoided').innerText = leachatesAvoided.toLocaleString() + ' L';
+            document.getElementById('stat-alert-count').innerText = alertCount;
+            document.getElementById('stat-alert-status').innerText = `${alertCount} lotes con retención crítica`;
+            document.getElementById('stat-success-rate').innerText = successRate + '%';
+        }
+
+        // --- TAB SWITCHER ---
+        function switchTab(tabId) {
+            ['tab-table', 'tab-scanner', 'tab-analytics'].forEach(id => {
+                document.getElementById(id).classList.add('hidden');
+            });
+            document.getElementById(tabId).classList.remove('hidden');
+
+            // Style active button
+            const btns = {
+                'tab-table': 'btn-tab-table',
+                'tab-scanner': 'btn-tab-scanner',
+                'tab-analytics': 'btn-tab-analytics'
+            };
+
+            Object.keys(btns).forEach(key => {
+                const btn = document.getElementById(btns[key]);
+                if (key === tabId) {
+                    btn.className = "flex-1 py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition flex items-center justify-center space-x-2 bg-emerald-700 text-white shadow";
+                } else {
+                    btn.className = "flex-1 py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition flex items-center justify-center space-x-2 text-slate-600 hover:bg-slate-100";
+                }
+            });
+
+            if (tabId === 'tab-analytics') {
+                updateCharts();
+            }
+        }
+
+        // --- SCANNER SIMULATION LOGIC ---
+        function updateScannerSelectOptions() {
+            const select = document.getElementById('scanner-batch-select');
+            select.innerHTML = '';
+            batches.forEach(b => {
+                const opt = document.createElement('option');
+                opt.value = b.id;
+                opt.innerText = `${b.id} - ${b.supplier} (${b.weight} kg)`;
+                select.appendChild(opt);
+            });
+        }
+
+        function selectAndScanBatch(batchId) {
+            switchTab('tab-scanner');
+            document.getElementById('scanner-batch-select').value = batchId;
+            executeScanFromSelect();
+        }
+
+        function simulateScannerWithCurrentTag() {
+            const currentId = document.getElementById('tag-id').innerText;
+            if (currentId && currentId !== 'LOT-EAN-0000') {
+                selectAndScanBatch(currentId);
+            } else {
+                showToast("Primero registre un lote para generar la etiqueta QR.");
+            }
+        }
+
+        function executeScanFromSelect() {
+            const selectedId = document.getElementById('scanner-batch-select').value;
+            const batch = batches.find(b => b.id === selectedId);
+
+            if (!batch) return;
+
+            // Audio & visual feedback
+            playScanBeep();
+            const feedback = document.getElementById('scanner-feedback');
+            feedback.innerText = `¡CÓDIGO LIDO: ${batch.id}!`;
+            feedback.className = "inline-block bg-emerald-500 text-emerald-950 font-black text-xs px-4 py-1 rounded-full border border-white animate-bounce";
+
+            // Update status
+            batch.status = 'Adecuado';
+
+            setTimeout(() => {
+                feedback.innerText = "Escáner Industrial Óptico Listo";
+                feedback.className = "inline-block bg-emerald-900/80 text-emerald-300 text-xs px-3 py-1 rounded-full border border-emerald-700 font-mono";
+            }, 3000);
+
+            // Display scanned card
+            const resultCard = document.getElementById('scan-result-card');
+            resultCard.classList.remove('hidden');
+            document.getElementById('scan-res-id').innerText = batch.id;
+            document.getElementById('scan-res-detail').innerHTML = `
+                <strong>Origen:</strong> ${batch.supplier} | 
+                <strong>Peso:</strong> ${batch.weight} kg | 
+                <strong>Ruta Ejecutada:</strong> <span class="text-emerald-800 font-bold">${batch.route}</span>
+            `;
+
+            renderAll();
+        }
+
+        // --- PRINTING TAG ---
+        function printTag() {
+            window.print();
+        }
+
+        // --- MODAL TOGGLE ---
+        function toggleGuideModal() {
+            const modal = document.getElementById('modal-guide');
+            modal.classList.toggle('hidden');
+        }
+
+        // --- SIMPLE TOAST NOTIFICATION ---
+        function showToast(msg) {
+            const toast = document.createElement('div');
+            toast.className = "fixed bottom-4 right-4 bg-emerald-900 text-white text-xs font-bold px-4 py-3 rounded-xl shadow-2xl z-50 flex items-center space-x-2 border border-emerald-700 transition transform translate-y-0";
+            toast.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-400 text-base"></i> <span>${msg}</span>`;
+            document.body.appendChild(toast);
+            setTimeout(() => {
+                toast.remove();
+            }, 3500);
+        }
+
+        // --- CHART.JS IMPLEMENTATION ---
+        function initCharts() {
+            const ctxRoutes = document.getElementById('chart-routes').getContext('2d');
+            chartRoutes = new Chart(ctxRoutes, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Deshidratación', 'Bokashi In-Situ', 'Compostaje In-Vessel', 'Alimentación Animal'],
+                    datasets: [{
+                        data: [40, 25, 20, 15],
+                        backgroundColor: ['#059669', '#10b981', '#34d399', '#f59e0b']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } }
+                }
+            });
+
+            const ctxHumidity = document.getElementById('chart-humidity').getContext('2d');
+            chartHumidity = new Chart(ctxHumidity, {
+                type: 'bar',
+                data: {
+                    labels: ['Corabastos', 'Paloquemao', '7 de Agosto', 'EAN Casino'],
+                    datasets: [{
+                        label: 'Humedad Promedio %',
+                        data: [88, 82, 75, 90],
+                        backgroundColor: '#047857'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { min: 50, max: 100 } }
+                }
+            });
+        }
+
+        function updateCharts() {
+            if (!chartRoutes) return;
+            
+            // Calculate dynamic counts
+            const routeCounts = {};
+            batches.forEach(b => {
+                const shortRoute = b.route.split(' ')[0];
+                routeCounts[shortRoute] = (routeCounts[shortRoute] || 0) + b.weight;
+            });
+
+            const labels = Object.keys(routeCounts);
+            const data = Object.values(routeCounts);
+
+            if (labels.length > 0) {
+                chartRoutes.data.labels = labels;
+                chartRoutes.data.datasets[0].data = data;
+                chartRoutes.update();
+            }
+        }
+    </script>
+</body>
+</html>
